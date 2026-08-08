@@ -10,24 +10,27 @@ import (
 	"github.com/snc-software/go-template-service/internal/platform/apperr"
 )
 
-// Store is the persistence dependency of Service.
-type Store interface {
+// Repository is the persistence dependency of Service.
+type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (Template, error)
 	GetPage(ctx context.Context, page, size int) ([]Template, int, error)
 	Create(ctx context.Context, create CreateTemplate) (Template, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// Service holds the business rules for the template resource.
 type Service struct {
-	store Store
+	repository Repository
 }
 
-func NewService(store Store) *Service {
-	return &Service{store: store}
+// NewService returns a Service backed by repository.
+func NewService(repository Repository) *Service {
+	return &Service{repository: repository}
 }
 
+// GetByID returns one template, or a NOT_FOUND application error.
 func (service *Service) GetByID(ctx context.Context, id uuid.UUID) (Template, error) {
-	template, err := service.store.GetByID(ctx, id)
+	template, err := service.repository.GetByID(ctx, id)
 
 	switch {
 	case errors.Is(err, ErrNotFound):
@@ -39,8 +42,9 @@ func (service *Service) GetByID(ctx context.Context, id uuid.UUID) (Template, er
 	return template, nil
 }
 
+// GetPage returns one page of templates and the total number of them.
 func (service *Service) GetPage(ctx context.Context, page, size int) ([]Template, int, error) {
-	templates, total, err := service.store.GetPage(ctx, page, size)
+	templates, total, err := service.repository.GetPage(ctx, page, size)
 	if err != nil {
 		return nil, 0, apperr.Internal(err)
 	}
@@ -48,8 +52,10 @@ func (service *Service) GetPage(ctx context.Context, page, size int) ([]Template
 	return templates, total, nil
 }
 
+// Create stores a new template, or returns a CONFLICT application error if the
+// email is already taken.
 func (service *Service) Create(ctx context.Context, create CreateTemplate) (Template, error) {
-	created, err := service.store.Create(ctx, create)
+	created, err := service.repository.Create(ctx, create)
 
 	switch {
 	case errors.Is(err, ErrDuplicateEmail):
@@ -61,8 +67,9 @@ func (service *Service) Create(ctx context.Context, create CreateTemplate) (Temp
 	return created, nil
 }
 
+// Delete removes one template, or returns a NOT_FOUND application error.
 func (service *Service) Delete(ctx context.Context, id uuid.UUID) error {
-	err := service.store.Delete(ctx, id)
+	err := service.repository.Delete(ctx, id)
 
 	switch {
 	case errors.Is(err, ErrNotFound):

@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -23,14 +24,13 @@ func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 				}
 
 				// http.ErrAbortHandler is a deliberate abort, not a failure.
-				if recovered == http.ErrAbortHandler {
+				if err, ok := recovered.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 					panic(recovered)
 				}
 
 				logger.ErrorContext(r.Context(), "panic recovered",
 					slog.String("method", r.Method),
 					slog.String("path", r.URL.Path),
-					slog.String("request_id", middleware.GetReqID(r.Context())),
 					slog.Any("panic", recovered),
 					slog.String("stack", string(debug.Stack())),
 				)
@@ -57,7 +57,6 @@ func RequestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 					slog.Int("status", wrapped.Status()),
 					slog.Int("bytes", wrapped.BytesWritten()),
 					slog.Int64("duration_ms", time.Since(start).Milliseconds()),
-					slog.String("request_id", middleware.GetReqID(r.Context())),
 				)
 			}()
 

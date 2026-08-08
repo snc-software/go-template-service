@@ -1,0 +1,80 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - errcheck
+    - errorlint
+    - gocritic
+    - govet
+    - ineffassign
+    - misspell
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unused
+    - wastedassign
+    - gosec
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+    staticcheck:
+      checks:
+        - all
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - style
+        - performance
+      settings:
+        hugeParam:
+          sizeThreshold: 128
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: indent-error-flow
+        - name: error-strings
+        - name: error-return
+        - name: context-as-argument
+        - name: receiver-naming
+  exclusions:
+    generated: lax
+    paths:
+      - docs
+    rules:
+      # Mapping between transport and domain types stays explicit: a struct
+      # conversion would silently publish any field later added to the domain
+      # type. S1016 stays enabled everywhere else.
+      - path: internal/.*/mapper\.go
+        linters:
+          - staticcheck
+        text: S1016
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/snc-software/go-template-service
+  exclusions:
+    paths:
+      - docs

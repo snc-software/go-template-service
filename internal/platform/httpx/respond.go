@@ -9,8 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/snc-software/go-template-service/internal/platform/apperr"
 )
 
@@ -34,22 +32,27 @@ type Responder struct {
 	logger *slog.Logger
 }
 
+// NewResponder returns a Responder that logs failures to logger.
 func NewResponder(logger *slog.Logger) *Responder {
 	return &Responder{logger: logger}
 }
 
+// OK writes data as JSON with status 200.
 func (rs *Responder) OK(w http.ResponseWriter, r *http.Request, data any) {
 	rs.json(w, r, http.StatusOK, data)
 }
 
+// Created writes data as JSON with status 201.
 func (rs *Responder) Created(w http.ResponseWriter, r *http.Request, data any) {
 	rs.json(w, r, http.StatusCreated, data)
 }
 
+// NoContent writes status 204 with no body and no Content-Type.
 func (rs *Responder) NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Error writes err as problem+json, logging it first if it maps to a 5xx.
 func (rs *Responder) Error(w http.ResponseWriter, r *http.Request, err error) {
 	appError := asAppError(err)
 
@@ -58,7 +61,6 @@ func (rs *Responder) Error(w http.ResponseWriter, r *http.Request, err error) {
 			slog.String("method", r.Method),
 			slog.String("path", r.URL.Path),
 			slog.String("code", string(appError.Code)),
-			slog.String("request_id", middleware.GetReqID(r.Context())),
 			slog.Any("err", err),
 		)
 	}

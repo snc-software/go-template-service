@@ -1,0 +1,65 @@
+name: go-template-service
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-template_service}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-template_service}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      GOOSE_DRIVER: postgres
+      GOOSE_DBSTRING: >-
+        host=postgres port=5432
+        dbname=${DB_NAME:-template_service}
+        user=${DB_USER:-postgres}
+        password=${DB_PASSWORD:-postgres}
+        sslmode=disable
+      GOOSE_MIGRATION_DIR: /migrations
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["up"]
+
+  api:
+    build:
+      context: .
+      args:
+        VERSION: ${VERSION:-dev}
+    environment:
+      PORT: "8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-template_service}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      # The database is only reachable on the compose network, never over the wire.
+      DB_SSLMODE: disable
+    ports:
+      - "${PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

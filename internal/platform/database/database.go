@@ -3,11 +3,14 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 
 	"github.com/snc-software/go-template-service/internal/platform/config"
 )
@@ -21,7 +24,7 @@ const (
 
 // New opens the connection pool and verifies the database is reachable.
 func New(ctx context.Context, cfg config.Database) (*sqlx.DB, error) {
-	db, err := sqlx.ConnectContext(ctx, "postgres", cfg.DSN())
+	db, err := sqlx.ConnectContext(ctx, "pgx", cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("connect to database: %w", err)
 	}
@@ -32,4 +35,13 @@ func New(ctx context.Context, cfg config.Database) (*sqlx.DB, error) {
 	db.SetConnMaxIdleTime(connMaxIdleTime)
 
 	return db, nil
+}
+
+// IsUniqueViolation reports whether err is a PostgreSQL unique constraint
+// failure. It is the one driver-specific check every repository needs, and
+// keeping it here is what lets the rest of a repository stay driver-agnostic.
+func IsUniqueViolation(err error) bool {
+	var pgError *pgconn.PgError
+
+	return errors.As(err, &pgError) && pgError.Code == pgerrcode.UniqueViolation
 }

@@ -18,25 +18,30 @@ const (
 	maxPageSize     = 100
 )
 
-type Handler struct {
+// Endpoints is the HTTP surface of the template resource.
+type Endpoints struct {
 	service   *Service
 	responder *httpx.Responder
 }
 
-func NewHandler(service *Service, responder *httpx.Responder) *Handler {
-	return &Handler{service: service, responder: responder}
+// NewEndpoints returns Endpoints backed by service.
+func NewEndpoints(service *Service, responder *httpx.Responder) *Endpoints {
+	return &Endpoints{service: service, responder: responder}
 }
 
-func (handler *Handler) Routes() http.Handler {
+// Routes returns the router for this resource, ready to be mounted.
+func (endpoints *Endpoints) Routes() http.Handler {
 	router := chi.NewRouter()
-	router.Get("/", handler.GetPage)
-	router.Get("/{id}", handler.GetByID)
-	router.Post("/", handler.Create)
-	router.Delete("/{id}", handler.Delete)
+	router.Get("/", endpoints.GetPage)
+	router.Get("/{id}", endpoints.GetByID)
+	router.Post("/", endpoints.Create)
+	router.Delete("/{id}", endpoints.Delete)
 
 	return router
 }
 
+// GetByID handles GET /templates/{id}.
+//
 // @Summary      Get template by ID
 // @Description  Returns a single template by ID
 // @Tags         Templates
@@ -47,22 +52,24 @@ func (handler *Handler) Routes() http.Handler {
 // @Failure      404  {object}  httpx.ProblemDetails
 // @Failure      500  {object}  httpx.ProblemDetails
 // @Router       /templates/{id} [get]
-func (handler *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+func (endpoints *Endpoints) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	found, err := handler.service.GetByID(r.Context(), id)
+	found, err := endpoints.service.GetByID(r.Context(), id)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	handler.responder.OK(w, r, toResponse(found))
+	endpoints.responder.OK(w, r, toResponse(found))
 }
 
+// GetPage handles GET /templates.
+//
 // @Summary      Get paged templates
 // @Description  Returns a paged list of templates
 // @Tags         Templates
@@ -73,16 +80,16 @@ func (handler *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Failure      400    {object}  httpx.ProblemDetails
 // @Failure      500    {object}  httpx.ProblemDetails
 // @Router       /templates [get]
-func (handler *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
+func (endpoints *Endpoints) GetPage(w http.ResponseWriter, r *http.Request) {
 	page, err := positiveIntQuery(r, "page", defaultPage)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
 	size, err := positiveIntQuery(r, "size", defaultPageSize)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
@@ -90,43 +97,47 @@ func (handler *Handler) GetPage(w http.ResponseWriter, r *http.Request) {
 		size = maxPageSize
 	}
 
-	templates, total, err := handler.service.GetPage(r.Context(), page, size)
+	templates, total, err := endpoints.service.GetPage(r.Context(), page, size)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	handler.responder.OK(w, r, toPagedResponse(templates, page, size, total))
+	endpoints.responder.OK(w, r, toPagedResponse(templates, page, size, total))
 }
 
+// Create handles POST /templates.
+//
 // @Summary      Create template
 // @Description  Creates a new template
 // @Tags         Templates
 // @Accept       json
 // @Produce      json
-// @Param        template  body      template.CreateRequest  true  "Template"
+// @Param        request   body      template.CreateRequest  true  "Template"
 // @Success      201   {object}  template.Response
 // @Failure      400   {object}  httpx.ProblemDetails
 // @Failure      409   {object}  httpx.ProblemDetails
 // @Failure      413   {object}  httpx.ProblemDetails
 // @Failure      500   {object}  httpx.ProblemDetails
 // @Router       /templates [post]
-func (handler *Handler) Create(w http.ResponseWriter, r *http.Request) {
+func (endpoints *Endpoints) Create(w http.ResponseWriter, r *http.Request) {
 	request, err := httpx.Decode[CreateRequest](w, r)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	created, err := handler.service.Create(r.Context(), request.toDomain())
+	created, err := endpoints.service.Create(r.Context(), request.toDomain())
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	handler.responder.Created(w, r, toResponse(created))
+	endpoints.responder.Created(w, r, toResponse(created))
 }
 
+// Delete handles DELETE /templates/{id}.
+//
 // @Summary      Delete template by ID
 // @Description  Deletes a single template by ID
 // @Tags         Templates
@@ -137,19 +148,19 @@ func (handler *Handler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure      404  {object}  httpx.ProblemDetails
 // @Failure      500  {object}  httpx.ProblemDetails
 // @Router       /templates/{id} [delete]
-func (handler *Handler) Delete(w http.ResponseWriter, r *http.Request) {
+func (endpoints *Endpoints) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
-		handler.responder.Error(w, r, err)
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	if err := handler.service.Delete(r.Context(), id); err != nil {
-		handler.responder.Error(w, r, err)
+	if err := endpoints.service.Delete(r.Context(), id); err != nil {
+		endpoints.responder.Error(w, r, err)
 		return
 	}
 
-	handler.responder.NoContent(w)
+	endpoints.responder.NoContent(w)
 }
 
 func pathID(r *http.Request) (uuid.UUID, error) {

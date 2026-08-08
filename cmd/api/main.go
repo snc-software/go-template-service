@@ -1,3 +1,4 @@
+// Command api is the service entry point and composition root.
 package main
 
 import (
@@ -15,16 +16,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
-	httpSwagger "github.com/swaggo/http-swagger"
 
-	_ "github.com/snc-software/go-template-service/docs"
+	"github.com/snc-software/go-template-service/docs"
+	"github.com/snc-software/go-template-service/internal/health"
 	"github.com/snc-software/go-template-service/internal/platform/config"
 	"github.com/snc-software/go-template-service/internal/platform/database"
 	"github.com/snc-software/go-template-service/internal/platform/httpx"
+	"github.com/snc-software/go-template-service/internal/platform/openapi"
 	"github.com/snc-software/go-template-service/internal/template"
 )
 
 const (
+	apiTitle = "Template API"
+
 	requestTimeout    = 15 * time.Second
 	readHeaderTimeout = 5 * time.Second
 	readTimeout       = 15 * time.Second
@@ -35,13 +39,18 @@ const (
 	shutdownTimeout = 20 * time.Second
 )
 
-// @title           Template API
-// @version         1.0
-// @description     A basic template management API
-// @host            localhost:8080
-// @BasePath        /
-// @tag.name        Templates
-// @tag.description Operations for managing templates
+// version is set at build time with -ldflags "-X main.version=...".
+var version = "dev"
+
+// @title                Template API
+// @version              1.0
+// @description          A basic template management API
+// @servers.url          http://localhost:8080
+// @servers.description  Local
+// @tag.name             Templates
+// @tag.description      Operations for managing templates
+// @tag.name             Health
+// @tag.description      Liveness and readiness probes
 func main() {
 	if err := run(); err != nil {
 		slog.Error("startup failed", slog.Any("err", err))
@@ -69,20 +78,32 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
+
+	reference, err := openapi.NewEndpoints(apiTitle, docs.OpenAPI)
+	if err != nil {
+		return err
+	}
 
 	responder := httpx.NewResponder(logger)
-	templates := template.NewHandler(template.NewService(template.NewPostgresStore(db)), responder)
+	templates := template.NewEndpoints(template.NewService(template.NewPostgresRepository(db)), responder)
+	probes := health.NewEndpoints(db, responder)
 
 	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(httpx.Recoverer(logger))
-	router.Use(httpx.RequestLogger(logger))
-	router.Use(middleware.Timeout(requestTimeout))
 
-	router.Mount("/templates", templates.Routes())
-	router.Get("/swagger/*", httpSwagger.WrapHandler)
+	router.Get("/health", probes.Live)
+	router.Get("/ready", probes.Ready)
+
+	router.Group(func(r chi.Router) {
+		r.Use(httpx.RequestLogger(logger))
+		r.Use(middleware.Timeout(requestTimeout))
+
+		r.Get(openapi.ReferencePath, reference.Reference)
+		r.Get(openapi.SpecPath, reference.Spec)
+		r.Mount("/templates", templates.Routes())
+	})
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -98,6 +119,7 @@ func run() error {
 	go func() {
 		logger.Info("server listening",
 			slog.String("addr", server.Addr),
+			slog.String("version", version),
 			slog.Any("database", cfg.Database),
 		)
 

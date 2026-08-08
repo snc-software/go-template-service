@@ -1,4 +1,4 @@
-// Package template is the example resource.
+// Package template is the example resource, wired end to end.
 package template
 
 import (
@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Template is the domain type. It is never serialised directly.
 type Template struct {
 	ID        uuid.UUID `db:"Id"`
 	Name      string    `db:"Name"`
@@ -15,6 +16,7 @@ type Template struct {
 	UpdatedAt time.Time `db:"UpdatedAt"`
 }
 
+// CreateTemplate is everything needed to store a new template.
 type CreateTemplate struct {
 	Name  string
 	Email string

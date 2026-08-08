@@ -1,158 +1,215 @@
-basePath: /
-definitions:
-  apperr.Code:
-    enum:
-    - NOT_FOUND
-    - INVALID_ARGUMENT
-    - VALIDATION_FAILED
-    - CONFLICT
-    - REQUEST_TOO_LARGE
-    - INTERNAL
-    type: string
-    x-enum-varnames:
-    - CodeNotFound
-    - CodeInvalidArgument
-    - CodeValidation
-    - CodeConflict
-    - CodeTooLarge
-    - CodeInternal
-  apperr.FieldError:
-    properties:
-      field:
-        type: string
-      message:
-        type: string
-    type: object
-  httpx.Pagination:
-    properties:
-      page:
-        type: integer
-      size:
-        type: integer
-      total:
-        type: integer
-    type: object
-  httpx.ProblemDetails:
-    properties:
-      code:
-        $ref: '#/definitions/apperr.Code'
-      errors:
+components:
+  schemas:
+    apperr.Code:
+      enum:
+      - NOT_FOUND
+      - INVALID_ARGUMENT
+      - VALIDATION_FAILED
+      - CONFLICT
+      - REQUEST_TOO_LARGE
+      - UNAVAILABLE
+      - INTERNAL
+      type: string
+      x-enum-varnames:
+      - CodeNotFound
+      - CodeInvalidArgument
+      - CodeValidation
+      - CodeConflict
+      - CodeTooLarge
+      - CodeUnavailable
+      - CodeInternal
+    apperr.FieldError:
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+      type: object
+    health.Status:
+      properties:
+        status:
+          type: string
+      type: object
+    httpx.Pagination:
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+      type: object
+    httpx.ProblemDetails:
+      properties:
+        code:
+          $ref: '#/components/schemas/apperr.Code'
+        errors:
+          items:
+            $ref: '#/components/schemas/apperr.FieldError'
+          type: array
+          uniqueItems: false
+        message:
+          type: string
+        status:
+          type: integer
+      type: object
+    template.CreateRequest:
+      properties:
+        email:
+          maxLength: 255
+          type: string
+        name:
+          maxLength: 255
+          minLength: 1
+          type: string
+      required:
+      - email
+      - name
+      type: object
+    template.PagedResponse:
+      properties:
         items:
-          $ref: '#/definitions/apperr.FieldError'
-        type: array
-      message:
-        type: string
-      status:
-        type: integer
-    type: object
-  template.CreateRequest:
-    properties:
-      email:
-        maxLength: 255
-        type: string
-      name:
-        maxLength: 255
-        minLength: 1
-        type: string
-    required:
-    - email
-    - name
-    type: object
-  template.PagedResponse:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/template.Response'
-        type: array
-      pagination:
-        $ref: '#/definitions/httpx.Pagination'
-    type: object
-  template.Response:
-    properties:
-      createdAt:
-        type: string
-      email:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      updatedAt:
-        type: string
-    type: object
-host: localhost:8080
+          items:
+            $ref: '#/components/schemas/template.Response'
+          type: array
+          uniqueItems: false
+        pagination:
+          $ref: '#/components/schemas/httpx.Pagination'
+      type: object
+    template.Response:
+      properties:
+        createdAt:
+          type: string
+        email:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        updatedAt:
+          type: string
+      type: object
+externalDocs:
+  description: ""
+  url: ""
 info:
-  contact: {}
   description: A basic template management API
   title: Template API
   version: "1.0"
+openapi: 3.1.0
 paths:
+  /health:
+    get:
+      description: Returns 200 while the process is running. Never touches dependencies.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health.Status'
+          description: OK
+      summary: Liveness probe
+      tags:
+      - Health
+  /ready:
+    get:
+      description: Returns 200 when the service can reach its dependencies, 503 otherwise.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/health.Status'
+          description: OK
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
+          description: Service Unavailable
+      summary: Readiness probe
+      tags:
+      - Health
   /templates:
     get:
       description: Returns a paged list of templates
       parameters:
-      - default: 1
-        description: Page number
+      - description: Page number
         in: query
         name: page
-        type: integer
-      - default: 10
-        description: Page size, capped at 100
+        schema:
+          default: 1
+          type: integer
+      - description: Page size, capped at 100
         in: query
         name: size
-        type: integer
-      produces:
-      - application/json
+        schema:
+          default: 10
+          type: integer
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/template.PagedResponse'
           description: OK
-          schema:
-            $ref: '#/definitions/template.PagedResponse'
         "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Bad Request
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Get paged templates
       tags:
       - Templates
     post:
-      consumes:
-      - application/json
       description: Creates a new template
-      parameters:
-      - description: Template
-        in: body
-        name: template
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/template.CreateRequest'
+              description: Template
+              summary: request
+        description: Template
         required: true
-        schema:
-          $ref: '#/definitions/template.CreateRequest'
-      produces:
-      - application/json
       responses:
         "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/template.Response'
           description: Created
-          schema:
-            $ref: '#/definitions/template.Response'
         "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Bad Request
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Conflict
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Request Entity Too Large
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Create template
       tags:
       - Templates
@@ -164,24 +221,29 @@ paths:
         in: path
         name: id
         required: true
-        type: string
-      produces:
-      - application/json
+        schema:
+          type: string
       responses:
         "204":
           description: No Content
         "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Bad Request
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Not Found
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Delete template by ID
       tags:
       - Templates
@@ -192,30 +254,41 @@ paths:
         in: path
         name: id
         required: true
-        type: string
-      produces:
-      - application/json
+        schema:
+          type: string
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/template.Response'
           description: OK
-          schema:
-            $ref: '#/definitions/template.Response'
         "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Bad Request
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Not Found
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
         "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/httpx.ProblemDetails'
           description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Get template by ID
       tags:
       - Templates
-swagger: "2.0"
+servers:
+- description: Local
+  url: http://localhost:8080
 tags:
 - description: Operations for managing templates
   name: Templates
+- description: Liveness and readiness probes
+  name: Health

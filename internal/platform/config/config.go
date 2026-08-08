@@ -8,12 +8,15 @@ import (
 	"strings"
 )
 
+// Config is the whole of the process configuration.
 type Config struct {
 	Port     string
 	LogLevel slog.Level
 	Database Database
 }
 
+// Database is the connection configuration. It redacts its password when
+// logged, so it cannot leak through a log line.
 type Database struct {
 	Host     string
 	Port     string
@@ -23,6 +26,7 @@ type Database struct {
 	SSLMode  string
 }
 
+// DSN returns the connection string in libpq keyword form.
 func (d Database) DSN() string {
 	return fmt.Sprintf(
 		"host=%s port=%s dbname=%s user=%s password=%s sslmode=%s",

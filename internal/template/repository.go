@@ -8,7 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
+
+	"github.com/snc-software/go-template-service/internal/platform/database"
 )
 
 // Storage failures the service translates into API errors.
@@ -17,22 +18,23 @@ var (
 	ErrDuplicateEmail = errors.New("template email already exists")
 )
 
-const uniqueViolation = pq.ErrorCode("23505")
-
 const columns = `"Id", "Name", "Email", "CreatedAt", "UpdatedAt"`
 
-type PostgresStore struct {
+// PostgresRepository stores templates in PostgreSQL.
+type PostgresRepository struct {
 	db *sqlx.DB
 }
 
-func NewPostgresStore(db *sqlx.DB) *PostgresStore {
-	return &PostgresStore{db: db}
+// NewPostgresRepository returns a PostgresRepository backed by db.
+func NewPostgresRepository(db *sqlx.DB) *PostgresRepository {
+	return &PostgresRepository{db: db}
 }
 
-func (store *PostgresStore) GetByID(ctx context.Context, id uuid.UUID) (Template, error) {
+// GetByID returns the template with the given ID, or ErrNotFound.
+func (repository *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (Template, error) {
 	var template Template
 
-	err := store.db.GetContext(ctx, &template,
+	err := repository.db.GetContext(ctx, &template,
 		`SELECT `+columns+` FROM "Templates" WHERE "Id" = $1`, id)
 
 	switch {
@@ -45,16 +47,17 @@ func (store *PostgresStore) GetByID(ctx context.Context, id uuid.UUID) (Template
 	return template, nil
 }
 
-func (store *PostgresStore) GetPage(ctx context.Context, page, size int) ([]Template, int, error) {
+// GetPage returns one page of templates, newest first, and the total count.
+func (repository *PostgresRepository) GetPage(ctx context.Context, page, size int) ([]Template, int, error) {
 	var total int
-	if err := store.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM "Templates"`); err != nil {
+	if err := repository.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM "Templates"`); err != nil {
 		return nil, 0, fmt.Errorf("count templates: %w", err)
 	}
 
 	templates := []Template{}
 	offset := (page - 1) * size
 
-	err := store.db.SelectContext(ctx, &templates,
+	err := repository.db.SelectContext(ctx, &templates,
 		`SELECT `+columns+` FROM "Templates" ORDER BY "CreatedAt" DESC, "Id" DESC LIMIT $1 OFFSET $2`,
 		size, offset)
 	if err != nil {
@@ -64,15 +67,16 @@ func (store *PostgresStore) GetPage(ctx context.Context, page, size int) ([]Temp
 	return templates, total, nil
 }
 
-func (store *PostgresStore) Create(ctx context.Context, create CreateTemplate) (Template, error) {
+// Create inserts a template and returns it as stored, or ErrDuplicateEmail.
+func (repository *PostgresRepository) Create(ctx context.Context, create CreateTemplate) (Template, error) {
 	var created Template
 
-	err := store.db.GetContext(ctx, &created,
+	err := repository.db.GetContext(ctx, &created,
 		`INSERT INTO "Templates" ("Id", "Name", "Email") VALUES ($1, $2, $3) RETURNING `+columns,
 		uuid.New(), create.Name, create.Email)
 
 	switch {
-	case isUniqueViolation(err):
+	case database.IsUniqueViolation(err):
 		return Template{}, fmt.Errorf("insert template: %w", ErrDuplicateEmail)
 	case err != nil:
 		return Template{}, fmt.Errorf("insert template: %w", err)
@@ -81,8 +85,9 @@ func (store *PostgresStore) Create(ctx context.Context, create CreateTemplate) (
 	return created, nil
 }
 
-func (store *PostgresStore) Delete(ctx context.Context, id uuid.UUID) error {
-	result, err := store.db.ExecContext(ctx, `DELETE FROM "Templates" WHERE "Id" = $1`, id)
+// Delete removes the template with the given ID, or returns ErrNotFound.
+func (repository *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	result, err := repository.db.ExecContext(ctx, `DELETE FROM "Templates" WHERE "Id" = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete template %s: %w", id, err)
 	}
@@ -97,10 +102,4 @@ func (store *PostgresStore) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
-}
-
-func isUniqueViolation(err error) bool {
-	var pqError *pq.Error
-
-	return errors.As(err, &pqError) && pqError.Code == uniqueViolation
 }

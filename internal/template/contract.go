@@ -8,11 +8,13 @@ import (
 	"github.com/snc-software/go-template-service/internal/platform/httpx"
 )
 
+// CreateRequest is the POST /templates body.
 type CreateRequest struct {
 	Name  string `json:"name"  validate:"required,min=1,max=255"`
 	Email string `json:"email" validate:"required,email,max=255"`
 }
 
+// Response is the API representation of a template.
 type Response struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
@@ -21,6 +23,7 @@ type Response struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// PagedResponse is one page of templates plus the effective pagination.
 type PagedResponse struct {
 	Items      []Response       `json:"items"`
 	Pagination httpx.Pagination `json:"pagination"`
