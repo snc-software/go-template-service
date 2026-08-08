@@ -1,2 +1,13 @@
-# Mac OS 
+# Mac OS
 .DS_Store
+
+# Local environment overrides (may contain secrets)
+.env.local
+
+# Build output
+/bin/
+*.exe
+
+# Test output
+*.out
+coverage.*

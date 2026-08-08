@@ -1,0 +1,155 @@
+basePath: /
+definitions:
+  contracts.CreateTemplateRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+  contracts.PagedResponse-contracts_TemplateResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/contracts.TemplateResponse'
+        type: array
+      pagination:
+        $ref: '#/definitions/contracts.Pagination'
+    type: object
+  contracts.Pagination:
+    properties:
+      page:
+        type: integer
+      size:
+        type: integer
+      total:
+        type: integer
+    type: object
+  contracts.TemplateResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A basic template management API
+  title: Template API
+  version: "1.0"
+paths:
+  /templates:
+    get:
+      description: Returns a paged list of templates
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Page size
+        in: query
+        name: size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contracts.PagedResponse-contracts_TemplateResponse'
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: Get paged templates
+      tags:
+      - Templates
+    post:
+      consumes:
+      - application/json
+      description: Creates a new template
+      parameters:
+      - description: Template
+        in: body
+        name: template
+        required: true
+        schema:
+          $ref: '#/definitions/contracts.CreateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/contracts.TemplateResponse'
+        "400":
+          description: invalid request body
+          schema:
+            type: string
+        "500":
+          description: internal error
+          schema:
+            type: string
+      summary: Create template
+      tags:
+      - Templates
+  /templates/{id}:
+    delete:
+      description: Deletes a single template by ID
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: invalid id
+          schema:
+            type: string
+        "404":
+          description: not found
+          schema:
+            type: string
+      summary: Delete template by ID
+      tags:
+      - Templates
+    get:
+      description: Returns a single template by ID
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/contracts.TemplateResponse'
+        "400":
+          description: invalid id
+          schema:
+            type: string
+        "404":
+          description: not found
+          schema:
+            type: string
+      summary: Get template by ID
+      tags:
+      - Templates
+swagger: "2.0"
+tags:
+- description: Operations for managing templates
+  name: Templates
