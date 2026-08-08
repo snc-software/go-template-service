@@ -58,7 +58,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.GOLANGCI_VERSION }}
 
