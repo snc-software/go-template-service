@@ -2,6 +2,8 @@ version: "2"
 
 run:
   timeout: 5m
+  build-tags:
+    - integration
 
 linters:
   default: none
@@ -55,14 +57,15 @@ linters:
     paths:
       - docs
     rules:
-      # Mapping between transport and domain types stays explicit: a struct
-      # conversion would silently publish any field later added to the domain
-      # type. S1016 stays enabled everywhere else.
-      - path: internal/.*/mapper\.go
+      # Mapping between transport and domain types stays explicit, in the mapper
+      # and in the tests that assert on it: a struct conversion would silently
+      # publish any field later added to the domain type. S1016 stays enabled
+      # everywhere else.
+      - path: (internal/.*/mapper\.go|^service_tests/)
         linters:
           - staticcheck
         text: S1016
-      - path: _test\.go
+      - path: (_test\.go|^service_tests/)
         linters:
           - errcheck
           - gosec

@@ -13,29 +13,20 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 
-	"github.com/snc-software/go-template-service/docs"
-	"github.com/snc-software/go-template-service/internal/health"
+	"github.com/snc-software/go-template-service/internal/app"
 	"github.com/snc-software/go-template-service/internal/platform/config"
 	"github.com/snc-software/go-template-service/internal/platform/database"
-	"github.com/snc-software/go-template-service/internal/platform/httpx"
-	"github.com/snc-software/go-template-service/internal/platform/openapi"
-	"github.com/snc-software/go-template-service/internal/template"
 )
 
 const (
-	apiTitle = "Template API"
-
-	requestTimeout    = 15 * time.Second
 	readHeaderTimeout = 5 * time.Second
 	readTimeout       = 15 * time.Second
 	writeTimeout      = 30 * time.Second
 	idleTimeout       = 60 * time.Second
 
-	// Must exceed requestTimeout, or the drain truncates in-flight work.
+	// Must exceed app.RequestTimeout, or the drain truncates in-flight work.
 	shutdownTimeout = 20 * time.Second
 )
 
@@ -80,30 +71,10 @@ func run() error {
 	}
 	defer func() { _ = db.Close() }()
 
-	reference, err := openapi.NewEndpoints(apiTitle, docs.OpenAPI)
+	router, err := app.NewRouter(db, logger)
 	if err != nil {
 		return err
 	}
-
-	responder := httpx.NewResponder(logger)
-	templates := template.NewEndpoints(template.NewService(template.NewPostgresRepository(db)), responder)
-	probes := health.NewEndpoints(db, responder)
-
-	router := chi.NewRouter()
-	router.Use(middleware.RealIP)
-	router.Use(httpx.Recoverer(logger))
-
-	router.Get("/health", probes.Live)
-	router.Get("/ready", probes.Ready)
-
-	router.Group(func(r chi.Router) {
-		r.Use(httpx.RequestLogger(logger))
-		r.Use(middleware.Timeout(requestTimeout))
-
-		r.Get(openapi.ReferencePath, reference.Reference)
-		r.Get(openapi.SpecPath, reference.Spec)
-		r.Mount("/templates", templates.Routes())
-	})
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,

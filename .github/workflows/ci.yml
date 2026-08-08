@@ -66,29 +66,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: template_service
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 15
-
-    env:
-      DB_HOST: localhost
-      DB_PORT: "5432"
-      DB_NAME: template_service
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      DB_SSLMODE: disable
-
     steps:
       - uses: actions/checkout@v4
 
@@ -97,17 +74,12 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Apply migrations
-        run: |
-          go run github.com/pressly/goose/v3/cmd/goose@${GOOSE_VERSION} \
-            -dir migrations postgres \
-            "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER password=$DB_PASSWORD sslmode=$DB_SSLMODE" \
-            up
-
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...
 
-      - name: Integration test
+      # Service tests start their own PostgreSQL through testcontainers, using
+      # the Docker daemon already present on the runner.
+      - name: Service test
         run: go test -race -tags=integration ./...
 
       - uses: actions/upload-artifact@v4
