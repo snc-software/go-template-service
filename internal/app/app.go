@@ -37,7 +37,6 @@ func NewRouter(db *sqlx.DB, logger *slog.Logger) (http.Handler, error) {
 	probes := health.NewEndpoints(db, responder)
 
 	router := chi.NewRouter()
-	router.Use(middleware.RealIP)
 	router.Use(httpx.Recoverer(logger))
 
 	router.Get("/health", probes.Live)
