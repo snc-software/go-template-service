@@ -36,7 +36,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 10,
-                        "description": "Page size",
+                        "description": "Page size, capped at 100",
                         "name": "size",
                         "in": "query"
                     }
@@ -45,13 +45,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/contracts.PagedResponse-contracts_TemplateResponse"
+                            "$ref": "#/definitions/template.PagedResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     },
                     "500": {
-                        "description": "internal error",
+                        "description": "Internal Server Error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     }
                 }
@@ -75,7 +81,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/contracts.CreateTemplateRequest"
+                            "$ref": "#/definitions/template.CreateRequest"
                         }
                     }
                 ],
@@ -83,19 +89,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/contracts.TemplateResponse"
+                            "$ref": "#/definitions/template.Response"
                         }
                     },
                     "400": {
-                        "description": "invalid request body",
+                        "description": "Bad Request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/httpx.ProblemDetails"
+                        }
+                    },
+                    "413": {
+                        "description": "Request Entity Too Large",
+                        "schema": {
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     },
                     "500": {
-                        "description": "internal error",
+                        "description": "Internal Server Error",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     }
                 }
@@ -124,19 +142,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/contracts.TemplateResponse"
+                            "$ref": "#/definitions/template.Response"
                         }
                     },
                     "400": {
-                        "description": "invalid id",
+                        "description": "Bad Request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     },
                     "404": {
-                        "description": "not found",
+                        "description": "Not Found",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     }
                 }
@@ -164,15 +188,21 @@ const docTemplate = `{
                         "description": "No Content"
                     },
                     "400": {
-                        "description": "invalid id",
+                        "description": "Bad Request",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     },
                     "404": {
-                        "description": "not found",
+                        "description": "Not Found",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/httpx.ProblemDetails"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpx.ProblemDetails"
                         }
                     }
                 }
@@ -180,32 +210,37 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "contracts.CreateTemplateRequest": {
+        "apperr.Code": {
+            "type": "string",
+            "enum": [
+                "NOT_FOUND",
+                "INVALID_ARGUMENT",
+                "VALIDATION_FAILED",
+                "CONFLICT",
+                "REQUEST_TOO_LARGE",
+                "INTERNAL"
+            ],
+            "x-enum-varnames": [
+                "CodeNotFound",
+                "CodeInvalidArgument",
+                "CodeValidation",
+                "CodeConflict",
+                "CodeTooLarge",
+                "CodeInternal"
+            ]
+        },
+        "apperr.FieldError": {
             "type": "object",
             "properties": {
-                "email": {
+                "field": {
                     "type": "string"
                 },
-                "name": {
+                "message": {
                     "type": "string"
                 }
             }
         },
-        "contracts.PagedResponse-contracts_TemplateResponse": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/contracts.TemplateResponse"
-                    }
-                },
-                "pagination": {
-                    "$ref": "#/definitions/contracts.Pagination"
-                }
-            }
-        },
-        "contracts.Pagination": {
+        "httpx.Pagination": {
             "type": "object",
             "properties": {
                 "page": {
@@ -219,9 +254,64 @@ const docTemplate = `{
                 }
             }
         },
-        "contracts.TemplateResponse": {
+        "httpx.ProblemDetails": {
             "type": "object",
             "properties": {
+                "code": {
+                    "$ref": "#/definitions/apperr.Code"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apperr.FieldError"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "template.CreateRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                }
+            }
+        },
+        "template.PagedResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/template.Response"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/httpx.Pagination"
+                }
+            }
+        },
+        "template.Response": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -229,6 +319,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }

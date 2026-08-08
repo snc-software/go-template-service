@@ -1,22 +1,29 @@
 basePath: /
 definitions:
-  contracts.CreateTemplateRequest:
+  apperr.Code:
+    enum:
+    - NOT_FOUND
+    - INVALID_ARGUMENT
+    - VALIDATION_FAILED
+    - CONFLICT
+    - REQUEST_TOO_LARGE
+    - INTERNAL
+    type: string
+    x-enum-varnames:
+    - CodeNotFound
+    - CodeInvalidArgument
+    - CodeValidation
+    - CodeConflict
+    - CodeTooLarge
+    - CodeInternal
+  apperr.FieldError:
     properties:
-      email:
+      field:
         type: string
-      name:
+      message:
         type: string
     type: object
-  contracts.PagedResponse-contracts_TemplateResponse:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/contracts.TemplateResponse'
-        type: array
-      pagination:
-        $ref: '#/definitions/contracts.Pagination'
-    type: object
-  contracts.Pagination:
+  httpx.Pagination:
     properties:
       page:
         type: integer
@@ -25,13 +32,52 @@ definitions:
       total:
         type: integer
     type: object
-  contracts.TemplateResponse:
+  httpx.ProblemDetails:
     properties:
+      code:
+        $ref: '#/definitions/apperr.Code'
+      errors:
+        items:
+          $ref: '#/definitions/apperr.FieldError'
+        type: array
+      message:
+        type: string
+      status:
+        type: integer
+    type: object
+  template.CreateRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - email
+    - name
+    type: object
+  template.PagedResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/template.Response'
+        type: array
+      pagination:
+        $ref: '#/definitions/httpx.Pagination'
+    type: object
+  template.Response:
+    properties:
+      createdAt:
+        type: string
       email:
         type: string
       id:
         type: string
       name:
+        type: string
+      updatedAt:
         type: string
     type: object
 host: localhost:8080
@@ -51,7 +97,7 @@ paths:
         name: page
         type: integer
       - default: 10
-        description: Page size
+        description: Page size, capped at 100
         in: query
         name: size
         type: integer
@@ -61,11 +107,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/contracts.PagedResponse-contracts_TemplateResponse'
-        "500":
-          description: internal error
+            $ref: '#/definitions/template.PagedResponse'
+        "400":
+          description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Get paged templates
       tags:
       - Templates
@@ -79,22 +129,30 @@ paths:
         name: template
         required: true
         schema:
-          $ref: '#/definitions/contracts.CreateTemplateRequest'
+          $ref: '#/definitions/template.CreateRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/contracts.TemplateResponse'
+            $ref: '#/definitions/template.Response'
         "400":
-          description: invalid request body
+          description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/httpx.ProblemDetails'
+        "413":
+          description: Request Entity Too Large
+          schema:
+            $ref: '#/definitions/httpx.ProblemDetails'
         "500":
-          description: internal error
+          description: Internal Server Error
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Create template
       tags:
       - Templates
@@ -113,13 +171,17 @@ paths:
         "204":
           description: No Content
         "400":
-          description: invalid id
+          description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
         "404":
-          description: not found
+          description: Not Found
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Delete template by ID
       tags:
       - Templates
@@ -137,15 +199,19 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/contracts.TemplateResponse'
+            $ref: '#/definitions/template.Response'
         "400":
-          description: invalid id
+          description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
         "404":
-          description: not found
+          description: Not Found
           schema:
-            type: string
+            $ref: '#/definitions/httpx.ProblemDetails'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpx.ProblemDetails'
       summary: Get template by ID
       tags:
       - Templates

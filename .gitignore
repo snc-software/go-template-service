@@ -1,8 +1,10 @@
 # Mac OS
 .DS_Store
 
-# Local environment overrides (may contain secrets)
+# Environment files holding real credentials
+.env
 .env.local
+migrations/goose.env
 
 # Build output
 /bin/
@@ -11,3 +13,6 @@
 # Test output
 *.out
 coverage.*
+
+# Agentic 
+plans/

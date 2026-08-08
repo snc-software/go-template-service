@@ -1,4 +1,5 @@
-package entities
+// Package template is the example resource.
+package template
 
 import (
 	"time"
@@ -12,4 +13,9 @@ type Template struct {
 	Email     string    `db:"Email"`
 	CreatedAt time.Time `db:"CreatedAt"`
 	UpdatedAt time.Time `db:"UpdatedAt"`
+}
+
+type CreateTemplate struct {
+	Name  string
+	Email string
 }

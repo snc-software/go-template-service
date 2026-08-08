@@ -2,9 +2,10 @@
 
 Template service for writing APIs with Go.
 
-The example resource is called **Template** throughout. To start a new service, 
-find-and-replace `Template` / `template` with your resource name and rename the
-matching files.
+The example resource is called **Template** throughout. To start a new service,
+copy `internal/template/` to `internal/<resource>/`, find-and-replace
+`Template` / `template` with your resource name, and mount it in
+`cmd/api/main.go`.
 
 ## Stack
 
@@ -16,25 +17,31 @@ matching files.
 | Migrations  | `pressly/goose` (CLI)         |
 | API docs    | `swaggo/swag` (Swagger 2.0)   |
 | Config      | `joho/godotenv` |
+| Validation  | `go-playground/validator/v10` |
+| Logging     | `log/slog` (stdlib)           |
 
 ## Layout
 
+One resource is one package. Adding a resource means adding a directory, not
+editing nine.
+
 ```
-main.go                     composition root, router wiring, swagger annotations
-routes/                     HTTP handlers
-  contracts/                request/response DTOs (the public API surface)
-  middleware/               panic recovery
-mapping/                    contract <-> domain translation
-domain/
-  models/                   domain types
-  services/                 business logic
-persistence/
-  entities/                 database row types
-  readers/                  queries
-  writers/                  commands
-  migrations/               goose SQL migrations
-exceptions/                 typed application errors
-utils/                      JSON response helpers
+cmd/
+  api/main.go               composition root: config, logger, pool, router, server, shutdown
+internal/
+  template/                 the example resource, end to end
+    handler.go              HTTP handlers + swagger annotations
+    service.go              business logic; declares the Store interface it needs
+    store.go                PostgreSQL queries
+    model.go                domain types
+    contract.go             request/response DTOs (the public API surface)
+    mapper.go               contract <-> domain translation
+  platform/                 cross-cutting, named for what it provides
+    apperr/                 typed application errors carrying code + HTTP status
+    httpx/                  response writing, request decoding, middleware
+    config/                 environment loading and validation
+    database/               connection pool construction and tuning
+migrations/                 goose SQL migrations
 docs/                       generated swagger output (do not edit by hand)
 ```
 
@@ -43,54 +50,66 @@ docs/                       generated swagger output (do not edit by hand)
 Requires Go 1.26+, PostgreSQL, and [goose](https://github.com/pressly/goose).
 
 ```bash
-# 1. create the database
+# 1. configure
+cp .env.sample .env.local        # .env.local is gitignored; put your password there
+cp migrations/goose.env.sample migrations/goose.env
+
+# 2. create the database
 createdb template_service
 
-# 2. apply migrations
-cd persistence/migrations && goose -env=goose.env up && cd -
+# 3. apply migrations
+cd migrations && goose -env=goose.env up && cd -
 
-# 3. run
-go run .
+# 4. run
+go run ./cmd/api
 ```
 
 Swagger UI: http://localhost:8080/swagger/index.html
 
 ## Configuration
 
-`.env` holds committed non-secret defaults. `.env.local` overrides it and is
-gitignored — put your local password there:
+Configuration comes from the environment. `.env` is loaded first, then
+`.env.local` overrides it. Both are gitignored — neither is ever committed.
+Startup fails with the full list of anything required and missing.
 
-```
-DB_PASSWORD=postgres
-```
+| Variable      | Required | Default            |
+| ------------- | -------- | ------------------ |
+| `PORT` | no | `8080` |
+| `LOG_LEVEL` | no | `info` |
+| `DB_HOST` | yes | — |
+| `DB_PORT` | yes | — |
+| `DB_NAME` | yes | — |
+| `DB_USER` | yes | — |
+| `DB_PASSWORD` | no | — |
+| `DB_SSLMODE` | no | `require` |
 
-| Variable      | Default          |
-| ------------- | ---------------- |
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `5432` |
-| `DB_NAME` | `template_service` |
-| `DB_USER` | `postgres` |
-| `DB_PASSWORD` | —                |
+`DB_SSLMODE` defaults to `require`. `.env.sample` sets it to `disable` because
+that is what a local PostgreSQL usually needs; do not carry that value into a
+deployed environment.
 
 ## Endpoints
 
 | Method   | Path               | Description        |
 | -------- | ------------------ | ------------------ |
-| `GET` | `/templates` | Paged list         |
+| `GET` | `/templates` | Paged list; `page` and `size`, size capped at 100 |
 | `GET` | `/templates/{id}` | Fetch by ID        |
 | `POST` | `/templates` | Create             |
 | `DELETE` | `/templates/{id}` | Delete by ID       |
 
+Errors use one media type across the whole API: `application/problem+json`
+(RFC 7807), with a `status`, a stable machine-readable `code`, a human
+`message`, and — for validation failures — a per-field `errors` array.
+
 ## Regenerating API docs
 
 ```bash
-go install github.com/swaggo/swag/cmd/swag@latest
-swag init
+go install github.com/swaggo/swag/cmd/swag@v1.16.6
+swag init -g cmd/api/main.go --parseInternal -o docs
 ```
 
 ## Adding a migration
 
 ```bash
-cd persistence/migrations
+cd migrations
 goose create <name> sql
 ```
