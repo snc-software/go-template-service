@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.env.local
+.env.sample
+bin
+coverage.out
+plans
+docker-compose.yml
+Dockerfile
+Makefile
+README.md
+ARCHITECTURE.md
+CONTRIBUTING.md
+.standards

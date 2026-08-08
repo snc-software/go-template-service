@@ -1,0 +1,462 @@
+{
+    "components": {
+        "schemas": {
+            "apperr.Code": {
+                "enum": [
+                    "NOT_FOUND",
+                    "INVALID_ARGUMENT",
+                    "VALIDATION_FAILED",
+                    "CONFLICT",
+                    "REQUEST_TOO_LARGE",
+                    "UNAVAILABLE",
+                    "INTERNAL"
+                ],
+                "type": "string",
+                "x-enum-varnames": [
+                    "CodeNotFound",
+                    "CodeInvalidArgument",
+                    "CodeValidation",
+                    "CodeConflict",
+                    "CodeTooLarge",
+                    "CodeUnavailable",
+                    "CodeInternal"
+                ]
+            },
+            "apperr.FieldError": {
+                "properties": {
+                    "field": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "health.Status": {
+                "properties": {
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            "httpx.Pagination": {
+                "properties": {
+                    "page": {
+                        "type": "integer"
+                    },
+                    "size": {
+                        "type": "integer"
+                    },
+                    "total": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "httpx.ProblemDetails": {
+                "properties": {
+                    "code": {
+                        "$ref": "#/components/schemas/apperr.Code"
+                    },
+                    "errors": {
+                        "items": {
+                            "$ref": "#/components/schemas/apperr.FieldError"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "message": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "integer"
+                    }
+                },
+                "type": "object"
+            },
+            "template.CreateRequest": {
+                "properties": {
+                    "email": {
+                        "maxLength": 255,
+                        "type": "string"
+                    },
+                    "name": {
+                        "maxLength": 255,
+                        "minLength": 1,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "name"
+                ],
+                "type": "object"
+            },
+            "template.PagedResponse": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/template.Response"
+                        },
+                        "type": "array",
+                        "uniqueItems": false
+                    },
+                    "pagination": {
+                        "$ref": "#/components/schemas/httpx.Pagination"
+                    }
+                },
+                "type": "object"
+            },
+            "template.Response": {
+                "properties": {
+                    "createdAt": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "updatedAt": {
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            }
+        }
+    },
+    "info": {
+        "description": "A basic template management API",
+        "title": "Template API",
+        "version": "1.0"
+    },
+    "externalDocs": {
+        "description": "",
+        "url": ""
+    },
+    "paths": {
+        "/health": {
+            "get": {
+                "description": "Returns 200 while the process is running. Never touches dependencies.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/health.Status"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    }
+                },
+                "summary": "Liveness probe",
+                "tags": [
+                    "Health"
+                ]
+            }
+        },
+        "/ready": {
+            "get": {
+                "description": "Returns 200 when the service can reach its dependencies, 503 otherwise.",
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/health.Status"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "503": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Service Unavailable"
+                    }
+                },
+                "summary": "Readiness probe",
+                "tags": [
+                    "Health"
+                ]
+            }
+        },
+        "/templates": {
+            "get": {
+                "description": "Returns a paged list of templates",
+                "parameters": [
+                    {
+                        "description": "Page number",
+                        "in": "query",
+                        "name": "page",
+                        "schema": {
+                            "default": 1,
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "description": "Page size, capped at 100",
+                        "in": "query",
+                        "name": "size",
+                        "schema": {
+                            "default": 10,
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/template.PagedResponse"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get paged templates",
+                "tags": [
+                    "Templates"
+                ]
+            },
+            "post": {
+                "description": "Creates a new template",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/template.CreateRequest",
+                                "summary": "request",
+                                "description": "Template"
+                            }
+                        }
+                    },
+                    "description": "Template",
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/template.Response"
+                                }
+                            }
+                        },
+                        "description": "Created"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "409": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Conflict"
+                    },
+                    "413": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Request Entity Too Large"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Create template",
+                "tags": [
+                    "Templates"
+                ]
+            }
+        },
+        "/templates/{id}": {
+            "delete": {
+                "description": "Deletes a single template by ID",
+                "parameters": [
+                    {
+                        "description": "Template ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Delete template by ID",
+                "tags": [
+                    "Templates"
+                ]
+            },
+            "get": {
+                "description": "Returns a single template by ID",
+                "parameters": [
+                    {
+                        "description": "Template ID",
+                        "in": "path",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/template.Response"
+                                }
+                            }
+                        },
+                        "description": "OK"
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/httpx.ProblemDetails"
+                                }
+                            }
+                        },
+                        "description": "Internal Server Error"
+                    }
+                },
+                "summary": "Get template by ID",
+                "tags": [
+                    "Templates"
+                ]
+            }
+        }
+    },
+    "openapi": "3.1.0",
+    "tags": [
+        {
+            "description": "Operations for managing templates",
+            "name": "Templates"
+        },
+        {
+            "description": "Liveness and readiness probes",
+            "name": "Health"
+        }
+    ],
+    "servers": [
+        {
+            "description": "Local",
+            "url": "http://localhost:8080"
+        }
+    ]
+}

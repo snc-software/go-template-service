@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOOSE_VERSION: v3.27.0
+  SWAG_VERSION: v2.0.0-rc5.0.20260624025242-85616068ff6b
+  GOLANGCI_VERSION: v2.12.2
+
+jobs:
+  build:
+    name: Build and vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt reported unformatted files:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Verify go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+
+      - run: go vet ./...
+
+      - run: go build ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ env.GOLANGCI_VERSION }}
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      # Service tests start their own PostgreSQL through testcontainers, using
+      # the Docker daemon already present on the runner.
+      - name: Service test
+        run: go test -race -tags=integration ./...
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: ignore
+
+  docs:
+    name: OpenAPI document is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Regenerate
+        run: |
+          go run github.com/swaggo/swag/v2/cmd/swag@${SWAG_VERSION} \
+            init -g cmd/api/main.go --parseInternal --v3.1 --outputTypes json,yaml -o docs
+
+      - name: Fail if docs/ drifted from the annotations
+        run: |
+          if ! git diff --exit-code -- docs/; then
+            echo "::error::docs/ is stale — run 'make docs' and commit the result"
+            exit 1
+          fi
+
+  vulncheck:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --source=/repo --redact --verbose

@@ -1,2 +1,18 @@
-# Mac OS 
+# Mac OS
 .DS_Store
+
+# Environment files holding real credentials
+.env
+.env.local
+migrations/goose.env
+
+# Build output
+/bin/
+*.exe
+
+# Test output
+*.out
+coverage.*
+
+# Agentic 
+plans/
