@@ -14,13 +14,13 @@ import (
 	"github.com/snc-software/go-template-service/internal/platform/apperr"
 	"github.com/snc-software/go-template-service/internal/platform/httpx"
 	"github.com/snc-software/go-template-service/internal/template"
-	"github.com/snc-software/go-template-service/service_tests/platform"
+	testinfrastructure "github.com/snc-software/go-template-service/service_tests/test_infrastructure"
 )
 
 func Test_GetById_Should_Return_Template(t *testing.T) {
 	t.Parallel()
 
-	api := platform.Current(t)
+	api := testinfrastructure.Current(t)
 	seeded := seedTemplate(t, api.DB)
 
 	response := api.Get(t, "/templates/"+seeded.ID.String())
@@ -47,7 +47,7 @@ func Test_GetById_Should_Return_Template(t *testing.T) {
 func Test_GetById_Should_Return_NotFound_When_Template_Does_Not_Exist(t *testing.T) {
 	t.Parallel()
 
-	api := platform.Current(t)
+	api := testinfrastructure.Current(t)
 	id := uuid.New()
 
 	response := api.Get(t, "/templates/"+id.String())

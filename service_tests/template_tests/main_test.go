@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/snc-software/go-template-service/service_tests/platform"
+	testinfrastructure "github.com/snc-software/go-template-service/service_tests/test_infrastructure"
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(platform.Run(m))
+	os.Exit(testinfrastructure.Run(m))
 }

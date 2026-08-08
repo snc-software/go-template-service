@@ -1,9 +1,9 @@
 //go:build integration
 
-// Package platform boots what every service test needs: a PostgreSQL container,
-// the schema goose builds inside it, and the real router serving over a local
-// listener. Nothing about the application is substituted.
-package platform
+// Package testinfrastructure boots what every service test needs: a PostgreSQL
+// container, the schema goose builds inside it, and the real router serving over
+// a local listener. Nothing about the application is substituted.
+package testinfrastructure
 
 import (
 	"context"
@@ -69,7 +69,7 @@ func Current(t *testing.T) *API {
 	t.Helper()
 
 	if running == nil {
-		t.Fatal("platform.Run was not called from TestMain")
+		t.Fatal("testinfrastructure.Run was not called from TestMain")
 	}
 
 	return running
@@ -84,7 +84,7 @@ func start(ctx context.Context) (*API, func(), error) {
 		}
 	}
 
-	// Every test package that boots the platform attaches to this one container
+	// Every test package that boots the infrastructure attaches to this one container
 	// rather than starting its own. It is deliberately not terminated here: the
 	// package that finishes first would take the database away from the ones
 	// still running. Testcontainers' reaper owns it instead, and tears it down

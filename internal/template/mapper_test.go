@@ -10,7 +10,7 @@ import (
 	"github.com/snc-software/go-template-service/internal/platform/httpx"
 )
 
-func TestCreateRequestToDomain(t *testing.T) {
+func Test_ToDomain_Should_Return_CreateTemplate(t *testing.T) {
 	t.Parallel()
 
 	request := CreateRequest{Name: "Ada", Email: "ada@example.test"}
@@ -18,7 +18,7 @@ func TestCreateRequestToDomain(t *testing.T) {
 	assert.Equal(t, CreateTemplate{Name: "Ada", Email: "ada@example.test"}, request.toDomain())
 }
 
-func TestToResponse(t *testing.T) {
+func Test_ToResponse_Should_Return_Response(t *testing.T) {
 	t.Parallel()
 
 	id := uuid.New()
@@ -42,7 +42,7 @@ func TestToResponse(t *testing.T) {
 	}, response)
 }
 
-func TestToPagedResponse(t *testing.T) {
+func Test_ToPagedResponse_Should_Return_Items_With_Pagination(t *testing.T) {
 	t.Parallel()
 
 	first := Template{ID: uuid.New(), Name: "Ada", Email: "ada@example.test"}
@@ -54,7 +54,7 @@ func TestToPagedResponse(t *testing.T) {
 	assert.Equal(t, httpx.Pagination{Page: 2, Size: 10, Total: 25}, paged.Pagination)
 }
 
-func TestToPagedResponseWithNoTemplatesKeepsItemsAnEmptyArray(t *testing.T) {
+func Test_ToPagedResponse_Should_Return_Empty_Items_When_There_Are_No_Templates(t *testing.T) {
 	t.Parallel()
 
 	paged := toPagedResponse(nil, 1, 10, 0)

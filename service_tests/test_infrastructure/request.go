@@ -1,6 +1,6 @@
 //go:build integration
 
-package platform
+package testinfrastructure
 
 import (
 	"encoding/json"
