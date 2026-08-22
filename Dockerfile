@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 
 ARG VERSION=dev
 
@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /out/api ./cmd/api
 
-FROM golang:1.26-alpine AS migrate
+FROM golang:1.27-alpine AS migrate
 
 ARG GOOSE_VERSION=v3.27.0
 
